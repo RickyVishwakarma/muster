@@ -10,13 +10,15 @@ const tabs = [
 
 export default function App() {
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-edge bg-panel">
+    <div className="min-h-screen bg-paper text-ink">
+      <header className="border-b border-line">
         <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
-          <span className="text-lg font-semibold">
-            Mus<span className="text-accent">ter</span>
+          <span className="text-lg font-semibold tracking-tight">
+            Mus<span className="text-muted">ter</span>
           </span>
-          <span className="text-xs text-white/40">agent studio · rag · guardrails · traces</span>
+          <span className="hidden text-xs text-muted sm:inline">
+            agent studio · rag · guardrails · traces
+          </span>
           <nav className="ml-auto flex gap-1">
             {tabs.map((t) => (
               <NavLink
@@ -24,7 +26,9 @@ export default function App() {
                 to={t.to}
                 className={({ isActive }) =>
                   `rounded-md px-3 py-1.5 text-sm ${
-                    isActive ? "bg-accent/20 text-accent" : "text-white/60 hover:text-white"
+                    isActive
+                      ? "bg-ink text-white"
+                      : "text-muted hover:text-ink"
                   }`
                 }
               >

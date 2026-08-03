@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { GuardrailStatus, Trace } from "../types";
 
+// Monochrome: grounded = bold, ungrounded = dotted underline, no_context = muted.
 const guardStyles: Record<GuardrailStatus, string> = {
-  grounded: "text-emerald-300",
-  ungrounded: "text-red-300",
-  no_context: "text-amber-300",
+  grounded: "font-medium text-ink",
+  ungrounded: "text-ink underline decoration-dotted underline-offset-2",
+  no_context: "text-muted",
 };
 
 export default function TracesPage() {
@@ -19,14 +20,14 @@ export default function TracesPage() {
   return (
     <div>
       <h1 className="mb-1 text-xl font-semibold">Traces</h1>
-      <p className="mb-4 text-sm text-white/40">
+      <p className="mb-4 text-sm text-muted">
         One row per agent run — latency, token usage, and the guardrail verdict.
       </p>
-      {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
+      {error && <p className="mb-3 text-sm text-ink">{error}</p>}
 
-      <div className="overflow-x-auto rounded-lg border border-edge">
+      <div className="overflow-x-auto rounded-lg border border-line">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="bg-panel text-xs uppercase text-white/40">
+          <thead className="bg-soft text-xs uppercase text-muted">
             <tr>
               <th className="px-4 py-2">Question</th>
               <th className="px-4 py-2">Guardrail</th>
@@ -38,26 +39,26 @@ export default function TracesPage() {
           </thead>
           <tbody>
             {traces.map((t) => (
-              <tr key={t.id} className="border-t border-edge">
-                <td className="max-w-[260px] truncate px-4 py-2 text-white/80">
+              <tr key={t.id} className="border-t border-line">
+                <td className="max-w-[260px] truncate px-4 py-2 text-ink/80">
                   {t.question}
                 </td>
                 <td className={`px-4 py-2 ${guardStyles[t.guardrail_status]}`}>
                   {t.guardrail_status}
                 </td>
-                <td className="px-4 py-2 text-white/50">{t.provider}</td>
-                <td className="px-4 py-2 text-white/50">{t.latency_ms} ms</td>
-                <td className="px-4 py-2 text-white/50">
+                <td className="px-4 py-2 text-muted">{t.provider}</td>
+                <td className="px-4 py-2 text-muted">{t.latency_ms} ms</td>
+                <td className="px-4 py-2 text-muted">
                   {t.input_tokens}→{t.output_tokens}
                 </td>
-                <td className="px-4 py-2 text-white/40">
+                <td className="px-4 py-2 text-muted">
                   {new Date(t.created_at).toLocaleString()}
                 </td>
               </tr>
             ))}
             {traces.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-white/40">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted">
                   No runs yet. Ask an agent something to generate a trace.
                 </td>
               </tr>

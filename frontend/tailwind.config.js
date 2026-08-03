@@ -4,10 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#0f1115",
-        panel: "#171a21",
-        edge: "#262b36",
-        accent: "#6d8bff",
+        paper: "#ffffff", // page background
+        ink: "#0a0a0a", // primary text / black
+        line: "#e5e5e5", // borders
+        soft: "#f7f7f7", // subtle panel fill
+        muted: "#6b7280", // secondary text
       },
     },
   },
