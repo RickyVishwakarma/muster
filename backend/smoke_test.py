@@ -1,4 +1,4 @@
-"""End-to-end smoke test of the MiniLyzr pipeline (template/offline mode).
+"""End-to-end smoke test of the Muster pipeline (template/offline mode).
 
 Verifies: health, agent CRUD, document ingest+embed, chat with RAG + citations
 + grounding guardrail, and trace persistence. Uses a fresh temp DB.
@@ -8,7 +8,7 @@ import tempfile
 
 # Force offline template mode + throwaway DB before importing the app.
 os.environ["ANTHROPIC_API_KEY"] = ""
-_db = os.path.join(tempfile.gettempdir(), "minilyzr_smoke.db")
+_db = os.path.join(tempfile.gettempdir(), "muster_smoke.db")
 if os.path.exists(_db):
     os.remove(_db)
 os.environ["DATABASE_URL"] = f"sqlite:///{_db}"

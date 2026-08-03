@@ -1,4 +1,4 @@
-# MiniLyzr
+# Muster
 
 A self-hostable slice of an **enterprise agent platform** — define an agent,
 give it a knowledge base, chat with it, and see every run traced. Built on the
@@ -94,7 +94,7 @@ Open http://localhost:5173. Vite proxies `/api` to the backend on port 8000.
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | _(empty)_ | When set, real generation via Anthropic; otherwise offline template mode |
 | `ANTHROPIC_MODEL` | `claude-opus-5` | Chat model (`claude-haiku-4-5` for a cheaper demo) |
-| `DATABASE_URL` | `sqlite:///./minilyzr.db` | Swap to `postgresql+psycopg://…` for Supabase/Postgres |
+| `DATABASE_URL` | `sqlite:///./muster.db` | Swap to `postgresql+psycopg://…` for Supabase/Postgres |
 | `CORS_ORIGINS` | `http://localhost:5173` | Allowed frontend origins |
 
 ---

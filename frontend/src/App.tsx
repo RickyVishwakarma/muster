@@ -14,7 +14,7 @@ export default function App() {
       <header className="border-b border-edge bg-panel">
         <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
           <span className="text-lg font-semibold">
-            Mini<span className="text-accent">Lyzr</span>
+            Mus<span className="text-accent">ter</span>
           </span>
           <span className="text-xs text-white/40">agent studio · rag · guardrails · traces</span>
           <nav className="ml-auto flex gap-1">

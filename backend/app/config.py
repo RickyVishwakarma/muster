@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-opus-5"
-    database_url: str = "sqlite:///./minilyzr.db"
+    database_url: str = "sqlite:///./muster.db"
     cors_origins: str = "http://localhost:5173"
 
     @property

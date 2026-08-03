@@ -1,4 +1,4 @@
-"""MiniLyzr API — a self-hostable slice of an agent platform.
+"""Muster API — a self-hostable slice of an agent platform.
 
 Surfaces: Agent Studio (agents), Knowledge base (documents), Memory & RAG +
 Hallucination Manager + Orchestration (chat), Observability (traces).
@@ -15,7 +15,7 @@ from .routers import agents, chat, documents, traces
 settings = get_settings()
 
 app = FastAPI(
-    title="MiniLyzr",
+    title="Muster",
     description="A self-hostable slice of an enterprise agent platform.",
     version="0.1.0",
 )
