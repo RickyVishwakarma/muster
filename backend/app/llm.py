@@ -1,23 +1,29 @@
 """LLM provider abstraction.
 
-Two providers behind one interface:
-  - "anthropic": real generation via the Anthropic API (default model
-    claude-opus-5) when ANTHROPIC_API_KEY is set.
+Three providers behind one interface, selected by which key is configured
+(Anthropic → Gemini → template; see config.active_provider):
+  - "anthropic": Anthropic API (default model claude-opus-5).
+  - "gemini":    Google Gemini via the REST API (stdlib only, no SDK dep).
   - "template":  a deterministic, offline stand-in so the whole app — agents,
     RAG, citations, guardrail, traces — demos end to end with no key/network.
 
-The template provider still respects the grounding contract (it answers only
-from the supplied context and emits [chunk N] citations), so the guardrail and
-trace views behave identically in both modes.
+Every provider gets the same grounding system prompt (answer only from context,
+emit [chunk N] citations), so the guardrail and trace views behave identically.
 """
 from __future__ import annotations
 
+import json
 import re
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 
 from .config import get_settings
 
 _SENT_RE = re.compile(r"(?<=[.!?])\s+")
+_GEMINI_ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
 
 
 @dataclass
@@ -72,24 +78,10 @@ def _template_answer(question: str, context_block: str) -> str:
     return " ".join(parts)
 
 
-def generate(agent_prompt: str, model: str, temperature: float,
-             question: str, context_block: str) -> LLMResult:
+def _anthropic_generate(system: str, model: str, question: str) -> LLMResult:
+    import anthropic  # lazy import so the app boots without the SDK
+
     settings = get_settings()
-    system = _build_system(agent_prompt, context_block)
-
-    if not settings.llm_enabled:
-        text = _template_answer(question, context_block)
-        return LLMResult(
-            text=text,
-            provider="template",
-            model="template-fallback",
-            input_tokens=_approx_tokens(system + question),
-            output_tokens=_approx_tokens(text),
-        )
-
-    # Real provider. Imported lazily so the app boots without the SDK installed.
-    import anthropic
-
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     resp = client.messages.create(
         model=model or settings.anthropic_model,
@@ -97,19 +89,88 @@ def generate(agent_prompt: str, model: str, temperature: float,
         system=system,
         messages=[{"role": "user", "content": question}],
     )
-
-    # Guard against a refusal stop_reason before reading content.
     if resp.stop_reason == "refusal":
         text = "I can't answer that request."
     else:
         text = "".join(
-            block.text for block in resp.content if getattr(block, "type", "") == "text"
+            b.text for b in resp.content if getattr(b, "type", "") == "text"
         ).strip()
-
     return LLMResult(
         text=text,
         provider="anthropic",
         model=resp.model,
         input_tokens=resp.usage.input_tokens,
         output_tokens=resp.usage.output_tokens,
+    )
+
+
+def _gemini_generate(system: str, model: str, temperature: float, question: str) -> LLMResult:
+    """Call the Gemini REST API using only the standard library."""
+    settings = get_settings()
+    model_id = model if (model or "").startswith("gemini") else settings.gemini_model
+    url = _GEMINI_ENDPOINT.format(model=model_id)
+    body = {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": question}]}],
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": 1024},
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": settings.gemini_api_key,
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read().decode())
+
+    candidates = data.get("candidates", [])
+    parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+    text = "".join(p.get("text", "") for p in parts).strip()
+    if not text:
+        # e.g. safety block or empty candidate — surface a stable message.
+        text = "I can't answer that request."
+
+    usage = data.get("usageMetadata", {})
+    return LLMResult(
+        text=text,
+        provider="gemini",
+        model=model_id,
+        input_tokens=usage.get("promptTokenCount", _approx_tokens(system + question)),
+        output_tokens=usage.get("candidatesTokenCount", _approx_tokens(text)),
+    )
+
+
+def generate(agent_prompt: str, model: str, temperature: float,
+             question: str, context_block: str) -> LLMResult:
+    settings = get_settings()
+    system = _build_system(agent_prompt, context_block)
+    provider = settings.active_provider
+
+    if provider == "anthropic":
+        return _anthropic_generate(system, model, question)
+
+    if provider == "gemini":
+        try:
+            return _gemini_generate(system, model, temperature, question)
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:300]
+            return LLMResult(
+                text=f"[gemini error {e.code}] {detail}",
+                provider="gemini",
+                model=settings.gemini_model,
+                input_tokens=_approx_tokens(system + question),
+                output_tokens=0,
+            )
+
+    # template fallback
+    text = _template_answer(question, context_block)
+    return LLMResult(
+        text=text,
+        provider="template",
+        model="template-fallback",
+        input_tokens=_approx_tokens(system + question),
+        output_tokens=_approx_tokens(text),
     )

@@ -38,8 +38,8 @@ def _startup() -> None:
 def health() -> dict:
     return {
         "status": "ok",
-        "provider": "anthropic" if settings.llm_enabled else "template",
-        "model": settings.anthropic_model if settings.llm_enabled else "template-fallback",
+        "provider": settings.active_provider,
+        "model": settings.active_model,
     }
 
 
