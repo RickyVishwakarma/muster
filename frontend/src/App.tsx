@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import AgentsPage from "./pages/AgentsPage";
 import ChatPage from "./pages/ChatPage";
 import TracesPage from "./pages/TracesPage";
@@ -16,8 +16,24 @@ export default function App() {
           <span className="text-lg font-semibold tracking-tight">
             Mus<span className="text-muted">ter</span>
           </span>
-          <span className="hidden text-xs text-muted sm:inline">
-            agent studio · rag · guardrails · traces
+          {/* Tagline: "agent studio" and "traces" map to pages, so they're
+              links; "rag" and "guardrails" are in-chat features, not pages. */}
+          <span className="hidden items-center gap-1.5 text-xs text-muted sm:flex">
+            <Link to="/agents" className="underline-offset-2 hover:text-ink hover:underline">
+              agent studio
+            </Link>
+            <span aria-hidden>·</span>
+            <span title="Retrieval-Augmented Generation — seen inside an agent's chat">
+              rag
+            </span>
+            <span aria-hidden>·</span>
+            <span title="Grounding check on each answer — the badge in chat">
+              guardrails
+            </span>
+            <span aria-hidden>·</span>
+            <Link to="/traces" className="underline-offset-2 hover:text-ink hover:underline">
+              traces
+            </Link>
           </span>
           <nav className="ml-auto flex gap-1">
             {tabs.map((t) => (
