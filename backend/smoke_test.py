@@ -7,6 +7,9 @@ import os
 import tempfile
 
 # Force offline template mode + throwaway DB before importing the app.
+# LLM_PROVIDER=template overrides any real key in .env so the test is hermetic
+# (env vars take priority over the .env file in pydantic-settings).
+os.environ["LLM_PROVIDER"] = "template"
 os.environ["ANTHROPIC_API_KEY"] = ""
 _db = os.path.join(tempfile.gettempdir(), "muster_smoke.db")
 if os.path.exists(_db):

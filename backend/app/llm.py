@@ -1,10 +1,13 @@
 """LLM provider abstraction.
 
-Three providers behind one interface, selected by which key is configured
-(Anthropic → Gemini → template; see config.active_provider):
-  - "anthropic": Anthropic API (default model claude-opus-5).
-  - "gemini":    Google Gemini via the REST API (stdlib only, no SDK dep).
-  - "template":  a deterministic, offline stand-in so the whole app — agents,
+Four providers behind one interface, selected by config.active_provider (an
+explicit LLM_PROVIDER override, else auto by key: Anthropic → Gemini →
+OpenRouter → template):
+  - "anthropic":  Anthropic API (default model claude-opus-5).
+  - "gemini":     Google Gemini via the REST API (stdlib only, no SDK dep).
+  - "openrouter": OpenRouter's OpenAI-compatible endpoint (stdlib only) — gives
+    access to many models, including free ones.
+  - "template":   a deterministic, offline stand-in so the whole app — agents,
     RAG, citations, guardrail, traces — demos end to end with no key/network.
 
 Every provider gets the same grounding system prompt (answer only from context,
@@ -24,6 +27,7 @@ _SENT_RE = re.compile(r"(?<=[.!?])\s+")
 _GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 )
+_OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
 
 @dataclass
@@ -143,6 +147,49 @@ def _gemini_generate(system: str, model: str, temperature: float, question: str)
     )
 
 
+def _openrouter_generate(system: str, model: str, temperature: float, question: str) -> LLMResult:
+    """Call OpenRouter's OpenAI-compatible chat endpoint using only the stdlib."""
+    settings = get_settings()
+    model_id = model if "/" in (model or "") else settings.openrouter_model
+    body = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": question},
+        ],
+        "temperature": temperature,
+        "max_tokens": 1024,
+    }
+    req = urllib.request.Request(
+        _OPENROUTER_ENDPOINT,
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.openrouter_api_key}",
+            # Optional attribution headers OpenRouter recommends.
+            "HTTP-Referer": "http://localhost:5173",
+            "X-Title": "Muster",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read().decode())
+
+    choices = data.get("choices", [])
+    text = (choices[0].get("message", {}).get("content", "") if choices else "").strip()
+    if not text:
+        text = "I can't answer that request."
+
+    usage = data.get("usage", {})
+    return LLMResult(
+        text=text,
+        provider="openrouter",
+        model=data.get("model", model_id),
+        input_tokens=usage.get("prompt_tokens", _approx_tokens(system + question)),
+        output_tokens=usage.get("completion_tokens", _approx_tokens(text)),
+    )
+
+
 def generate(agent_prompt: str, model: str, temperature: float,
              question: str, context_block: str) -> LLMResult:
     settings = get_settings()
@@ -161,6 +208,19 @@ def generate(agent_prompt: str, model: str, temperature: float,
                 text=f"[gemini error {e.code}] {detail}",
                 provider="gemini",
                 model=settings.gemini_model,
+                input_tokens=_approx_tokens(system + question),
+                output_tokens=0,
+            )
+
+    if provider == "openrouter":
+        try:
+            return _openrouter_generate(system, model, temperature, question)
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:300]
+            return LLMResult(
+                text=f"[openrouter error {e.code}] {detail}",
+                provider="openrouter",
+                model=settings.openrouter_model,
                 input_tokens=_approx_tokens(system + question),
                 output_tokens=0,
             )

@@ -3,6 +3,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_VALID_PROVIDERS = {"anthropic", "gemini", "openrouter", "template"}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -11,6 +13,13 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-opus-5"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    openrouter_api_key: str = ""
+    # OpenRouter's free catalog rotates — verify a slug is still free at
+    # https://openrouter.ai/models?max_price=0 and override via OPENROUTER_MODEL.
+    openrouter_model: str = "openai/gpt-oss-20b:free"
+    # Optional explicit override: anthropic | gemini | openrouter | template.
+    # Empty = auto-select by whichever key is configured.
+    llm_provider: str = ""
     database_url: str = "sqlite:///./muster.db"
     cors_origins: str = "http://localhost:5173"
 
@@ -20,14 +29,20 @@ class Settings(BaseSettings):
 
     @property
     def active_provider(self) -> str:
-        """Which LLM provider generation will use, given the configured keys.
+        """Which LLM provider generation will use.
 
-        Preference order: Anthropic → Gemini → offline template fallback.
+        Honors an explicit LLM_PROVIDER override; otherwise auto-selects by key
+        in order: Anthropic → Gemini → OpenRouter → offline template fallback.
         """
+        override = self.llm_provider.strip().lower()
+        if override in _VALID_PROVIDERS:
+            return override
         if self.anthropic_api_key.strip():
             return "anthropic"
         if self.gemini_api_key.strip():
             return "gemini"
+        if self.openrouter_api_key.strip():
+            return "openrouter"
         return "template"
 
     @property
@@ -35,6 +50,7 @@ class Settings(BaseSettings):
         return {
             "anthropic": self.anthropic_model,
             "gemini": self.gemini_model,
+            "openrouter": self.openrouter_model,
             "template": "template-fallback",
         }[self.active_provider]
 

@@ -16,7 +16,10 @@ from . import embeddings, llm
 from .models import Agent, Chunk, Document, Trace
 from .schemas import Citation
 
-_CITATION_RE = re.compile(r"\[chunk\s*(\d+)\]", re.IGNORECASE)
+# Match "chunk N" regardless of surrounding bracket style — models vary between
+# [chunk 1], (chunk 1), and full-width 【chunk 1】, and grounding shouldn't
+# hinge on punctuation the model happened to choose.
+_CITATION_RE = re.compile(r"chunk\s*(\d+)", re.IGNORECASE)
 
 
 def _retrieve(db: Session, agent_id: str, question: str, k: int) -> list[tuple[Chunk, float]]:
