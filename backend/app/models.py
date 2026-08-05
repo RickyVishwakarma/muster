@@ -25,6 +25,19 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class User(Base):
+    """A team member. The first user to register becomes the admin."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(20), default="member")  # admin | member
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+
 class Agent(Base):
     __tablename__ = "agents"
 
@@ -33,14 +46,22 @@ class Agent(Base):
     system_prompt: Mapped[str] = mapped_column(Text, default="")
     model: Mapped[str] = mapped_column(String(80), default="claude-opus-5")
     temperature: Mapped[float] = mapped_column(Float, default=0.0)
+    created_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
 
+    creator: Mapped[User | None] = relationship("User")
     documents: Mapped[list[Document]] = relationship(
         back_populates="agent", cascade="all, delete-orphan"
     )
     traces: Mapped[list[Trace]] = relationship(
         back_populates="agent", cascade="all, delete-orphan"
     )
+
+    @property
+    def created_by_name(self) -> str | None:
+        return self.creator.name if self.creator else None
 
 
 class Document(Base):
@@ -95,9 +116,17 @@ class Trace(Base):
     retrieved_chunk_ids_json: Mapped[str] = mapped_column(Text, default="[]")
     # Guardrail verdict: "grounded" | "ungrounded" | "no_context"
     guardrail_status: Mapped[str] = mapped_column(String(20), default="no_context")
+    created_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now, index=True)
 
     agent: Mapped[Agent] = relationship(back_populates="traces")
+    creator: Mapped[User | None] = relationship("User")
+
+    @property
+    def created_by_name(self) -> str | None:
+        return self.creator.name if self.creator else None
 
     @property
     def retrieved_chunk_ids(self) -> list[str]:

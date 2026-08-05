@@ -32,7 +32,25 @@ def get_db() -> Iterator[Session]:
         db.close()
 
 
+def _ensure_columns() -> None:
+    """Add columns introduced after a DB was first created (SQLite only).
+
+    Keeps existing dev databases working when new nullable columns are added,
+    without a full migration tool. Postgres deployments should use Alembic.
+    """
+    if not settings.database_url.startswith("sqlite"):
+        return
+    from sqlalchemy import text
+
+    with engine.begin() as conn:
+        for table in ("agents", "traces"):
+            existing = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+            if "created_by" not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN created_by VARCHAR(32)"))
+
+
 def init_db() -> None:
     from . import models  # noqa: F401  (register mappers)
 
     Base.metadata.create_all(bind=engine)
+    _ensure_columns()

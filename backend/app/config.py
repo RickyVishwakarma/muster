@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./muster.db"
     cors_origins: str = "http://localhost:5173"
 
+    # Auth. Set a strong SECRET_KEY in production (any long random string).
+    secret_key: str = "dev-insecure-change-me-please"
+    auth_token_ttl_hours: int = 168  # 7 days
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

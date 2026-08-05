@@ -35,6 +35,7 @@ Define an agent, give it a knowledge base, chat with it, and see every run trace
 
 ## Features
 
+- **Team accounts & roles** — email/password auth with a shared team workspace; the first user becomes the admin, and admins manage members. Agents, knowledge, and traces are shared across the team, with each agent and run attributed to its author.
 - **Agent studio** — create and configure agents (name, system prompt, model) through a clean UI or REST API.
 - **Knowledge base & RAG** — upload `.txt` / `.md` / `.pdf` files; they're chunked, embedded, and retrieved per question so answers are grounded in your data.
 - **Grounding guardrail** — every answer is checked against its retrieved sources and labelled `grounded`, `ungrounded`, or `no_context` — a first line of defence against hallucination.
@@ -150,6 +151,7 @@ Anthropic  →  Gemini  →  OpenRouter  →  offline template (no key needed)
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model id |
 | `OPENROUTER_API_KEY` | _(empty)_ | Enables the OpenRouter provider |
 | `OPENROUTER_MODEL` | `openai/gpt-oss-20b:free` | OpenRouter model slug (many free `:free` options) |
+| `SECRET_KEY` | `dev-insecure-…` | JWT signing key — **set a long random value in production** (`openssl rand -hex 32`) |
 | `DATABASE_URL` | `sqlite:///./muster.db` | SQLAlchemy URL; use `postgresql+psycopg://…` for Postgres/Supabase |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed frontend origins |
 
@@ -172,9 +174,16 @@ Ask something *outside* the uploaded material and a real model will answer *"I d
 
 Base URL: `http://localhost:8000`
 
+All endpoints except `/health`, `/auth/register`, and `/auth/login` require a `Authorization: Bearer <token>` header.
+
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/health` | Service status + active provider/model |
+| `POST` | `/auth/register` | Create an account (first user becomes admin) → token |
+| `POST` | `/auth/login` | Sign in → token |
+| `GET` | `/auth/me` | Current user |
+| `GET` | `/auth/users` | List team members (admin) |
+| `PATCH` | `/auth/users/{id}/role` | Change a member's role (admin) |
 | `GET` | `/agents` | List agents |
 | `POST` | `/agents` | Create an agent |
 | `GET` | `/agents/{id}` | Get an agent |

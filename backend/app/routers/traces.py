@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Trace
+from ..deps import get_current_user
+from ..models import Trace, User
 from ..schemas import TraceOut
 
 router = APIRouter(prefix="/traces", tags=["traces"])
@@ -17,6 +18,7 @@ def list_traces(
     agent_id: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     stmt = select(Trace).order_by(Trace.created_at.desc()).limit(limit)
     if agent_id:
@@ -25,7 +27,9 @@ def list_traces(
 
 
 @router.get("/{trace_id}", response_model=TraceOut)
-def get_trace(trace_id: str, db: Session = Depends(get_db)):
+def get_trace(
+    trace_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+):
     trace = db.get(Trace, trace_id)
     if trace is None:
         raise HTTPException(status_code=404, detail="Trace not found")

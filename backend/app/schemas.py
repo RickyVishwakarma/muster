@@ -6,6 +6,37 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# ---- Auth / users ---------------------------------------------------------
+class RegisterRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    name: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=6, max_length=200)
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    email: str
+    name: str
+    role: str
+    created_at: datetime
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserOut
+
+
+class RoleUpdate(BaseModel):
+    role: str = Field(pattern="^(admin|member)$")
+
+
 # ---- Agents ---------------------------------------------------------------
 class AgentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
@@ -29,6 +60,8 @@ class AgentOut(BaseModel):
     system_prompt: str
     model: str
     temperature: float
+    created_by: str | None = None
+    created_by_name: str | None = None
     created_at: datetime
 
 
@@ -87,4 +120,6 @@ class TraceOut(BaseModel):
     input_tokens: int
     output_tokens: int
     guardrail_status: str
+    created_by: str | None = None
+    created_by_name: str | None = None
     created_at: datetime

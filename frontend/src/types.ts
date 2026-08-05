@@ -1,9 +1,26 @@
+export type Role = "admin" | "member";
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
 export interface Agent {
   id: string;
   name: string;
   system_prompt: string;
   model: string;
   temperature: number;
+  created_by: string | null;
+  created_by_name: string | null;
   created_at: string;
 }
 
@@ -47,5 +64,7 @@ export interface Trace {
   input_tokens: number;
   output_tokens: number;
   guardrail_status: GuardrailStatus;
+  created_by: string | null;
+  created_by_name: string | null;
   created_at: string;
 }

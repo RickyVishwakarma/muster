@@ -48,7 +48,8 @@ def _grounding_status(answer: str, retrieved: list[tuple[Chunk, float]]) -> str:
     return "grounded" if cited & available else "ungrounded"
 
 
-def run_chat(db: Session, agent: Agent, question: str, top_k: int):
+def run_chat(db: Session, agent: Agent, question: str, top_k: int,
+             created_by: str | None = None):
     """Execute one agent run and persist a trace. Returns (payload_dict, trace)."""
     started = time.perf_counter()
     retrieved = _retrieve(db, agent.id, question, top_k)
@@ -94,6 +95,7 @@ def run_chat(db: Session, agent: Agent, question: str, top_k: int):
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
         guardrail_status=status,
+        created_by=created_by,
     )
     trace.retrieved_chunk_ids = [c.id for c, _ in retrieved]
     db.add(trace)

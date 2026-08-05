@@ -1,7 +1,8 @@
 """End-to-end smoke test of the Muster pipeline (template/offline mode).
 
-Verifies: health, agent CRUD, document ingest+embed, chat with RAG + citations
-+ grounding guardrail, and trace persistence. Uses a fresh temp DB.
+Verifies: auth (register→admin, protected routes reject anon), agent CRUD,
+document ingest+embed, chat with RAG + citations + grounding guardrail, and
+trace persistence with creator attribution. Uses a fresh temp DB.
 """
 import os
 import tempfile
@@ -26,11 +27,28 @@ with TestClient(app) as c:
     assert h["status"] == "ok", h
     print("health:", h)
 
+    # Protected routes must reject anonymous callers.
+    assert c.get("/agents").status_code == 401, "agents must require auth"
+    print("anonymous access blocked: 401")
+
+    # First registered user becomes the admin.
+    reg = c.post(
+        "/auth/register",
+        json={"email": "founder@acme.com", "name": "Founder", "password": "secret123"},
+    )
+    assert reg.status_code == 201, reg.text
+    body = reg.json()
+    assert body["user"]["role"] == "admin", body
+    token = body["token"]
+    c.headers.update({"Authorization": f"Bearer {token}"})
+    print("registered admin:", body["user"]["email"], "| role:", body["user"]["role"])
+
     agent = c.post(
         "/agents", json={"name": "Policy Bot", "system_prompt": "Answer HR questions."}
     ).json()
     aid = agent["id"]
-    print("agent:", agent["name"], aid)
+    assert agent["created_by_name"] == "Founder", agent
+    print("agent:", agent["name"], "| by:", agent["created_by_name"])
 
     doc = (
         "The parental leave policy grants 26 weeks of paid leave. "
@@ -51,11 +69,18 @@ with TestClient(app) as c:
 
     traces = c.get("/traces").json()
     assert len(traces) == 1, traces
-    print("trace:", traces[0]["guardrail_status"], traces[0]["latency_ms"], "ms")
+    assert traces[0]["created_by_name"] == "Founder", traces[0]
+    print("trace:", traces[0]["guardrail_status"], "| asked by:", traces[0]["created_by_name"])
 
-    r2 = c.post(
-        f"/agents/{aid}/chat", json={"question": "What is the stock price of Tesla?"}
+    # Second user registers as a plain member and cannot list the team.
+    reg2 = c.post(
+        "/auth/register",
+        json={"email": "member@acme.com", "name": "Member", "password": "secret123"},
     ).json()
-    print("off-topic answer:", r2["answer"][:80])
+    assert reg2["user"]["role"] == "member", reg2
+    member_headers = {"Authorization": f"Bearer {reg2['token']}"}
+    assert c.get("/auth/users", headers=member_headers).status_code == 403
+    assert c.get("/auth/users").status_code == 200  # admin still set on client
+    print("second user is member; admin-only route blocked for member")
 
 print("\nALL CHECKS PASSED")

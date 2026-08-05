@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from .. import embeddings
 from ..database import get_db
-from ..models import Agent, Chunk, Document
+from ..deps import get_current_user
+from ..models import Agent, Chunk, Document, User
 from ..schemas import DocumentIngestResult, DocumentOut
 
 router = APIRouter(prefix="/agents/{agent_id}/documents", tags=["documents"])
@@ -31,7 +32,9 @@ def _extract_text(file: UploadFile, raw: bytes) -> str:
 
 
 @router.get("", response_model=list[DocumentOut])
-def list_documents(agent_id: str, db: Session = Depends(get_db)):
+def list_documents(
+    agent_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+):
     if db.get(Agent, agent_id) is None:
         raise HTTPException(status_code=404, detail="Agent not found")
     return db.scalars(
@@ -41,7 +44,10 @@ def list_documents(agent_id: str, db: Session = Depends(get_db)):
 
 @router.post("", response_model=DocumentIngestResult, status_code=201)
 async def ingest_document(
-    agent_id: str, file: UploadFile, db: Session = Depends(get_db)
+    agent_id: str,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     if db.get(Agent, agent_id) is None:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -77,7 +83,12 @@ async def ingest_document(
 
 
 @router.delete("/{document_id}", status_code=204)
-def delete_document(agent_id: str, document_id: str, db: Session = Depends(get_db)):
+def delete_document(
+    agent_id: str,
+    document_id: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
     doc = db.get(Document, document_id)
     if doc is None or doc.agent_id != agent_id:
         raise HTTPException(status_code=404, detail="Document not found")

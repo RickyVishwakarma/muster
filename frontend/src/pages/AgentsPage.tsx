@@ -56,6 +56,9 @@ export default function AgentsPage() {
               <p className="mt-1 line-clamp-2 text-sm text-muted">
                 {a.system_prompt || "No system prompt."}
               </p>
+              {a.created_by_name && (
+                <p className="mt-2 text-xs text-muted">by {a.created_by_name}</p>
+              )}
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => nav(`/agents/${a.id}/chat`)}
