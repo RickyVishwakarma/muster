@@ -91,7 +91,7 @@ flowchart LR
 | **Backend** | FastAPI, Pydantic v2, SQLAlchemy 2 |
 | **Storage** | SQLite (default) → PostgreSQL / Supabase via `DATABASE_URL` |
 | **LLM providers** | Anthropic · Google Gemini · OpenRouter · offline template |
-| **Embeddings** | Dependency-free hashing embedding (swappable for a hosted model / pgvector) |
+| **Retrieval** | Hybrid **BM25** (lexical) + embedding cosine, fused with Reciprocal Rank Fusion; dependency-free, swappable for a hosted embedding model / pgvector |
 
 ---
 
@@ -226,7 +226,7 @@ curl -X POST http://localhost:8000/agents/<agent_id>/chat \
 
 The retrieval-augmented pipeline lives in [`backend/app/rag.py`](backend/app/rag.py):
 
-1. **Retrieve** — the question is embedded and cosine-ranked against the agent's stored chunks; the top-K are selected.
+1. **Retrieve** — the agent's chunks are ranked two ways, by **BM25** (lexical, IDF-weighted keyword relevance) and by embedding cosine (semantic); the two rankings are combined with **Reciprocal Rank Fusion** and the top-K fused results are selected. Chunks are sentence-aware, so each stays coherent.
 2. **Generate** — retrieved chunks are injected into a system prompt that instructs the model to answer *only* from context and cite each claim with `[chunk N]`.
 3. **Ground-check** — a guardrail confirms the answer actually references retrieved chunks (bracket-style agnostic), producing the `grounded` / `ungrounded` / `no_context` verdict.
 4. **Trace** — latency, token usage, provider/model, retrieved chunk ids, and the verdict are persisted for observability.

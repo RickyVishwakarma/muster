@@ -12,7 +12,7 @@ import time
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import embeddings, llm
+from . import embeddings, llm, retrieval
 from .models import Agent, Chunk, Document, Trace
 from .schemas import Citation
 
@@ -23,15 +23,32 @@ _CITATION_RE = re.compile(r"chunk\s*(\d+)", re.IGNORECASE)
 
 
 def _retrieve(db: Session, agent_id: str, question: str, k: int) -> list[tuple[Chunk, float]]:
+    """Hybrid retrieval: BM25 (lexical) fused with embedding cosine (semantic).
+
+    Reciprocal Rank Fusion combines the two rankings, so a chunk that scores
+    well on either signal surfaces — robust without calibrating either score.
+    Returned scores are the fused relevance, normalized so the top chunk is 1.0.
+    """
     rows = db.scalars(select(Chunk).where(Chunk.agent_id == agent_id)).all()
     if not rows:
         return []
-    q_vec = embeddings.embed(question)
-    ranked = embeddings.top_k(
-        q_vec, [(c.id, c.embedding) for c in rows], k
-    )
     by_id = {c.id: c for c in rows}
-    return [(by_id[cid], score) for cid, score in ranked if score > 0]
+
+    # Lexical ranking (BM25) — keeps only chunks that actually match query terms.
+    bm25 = retrieval.bm25_rank(question, [(c.id, c.text) for c in rows])
+    bm25_ids = [cid for cid, score in bm25 if score > 0]
+
+    # Semantic ranking (embedding cosine).
+    q_vec = embeddings.embed(question)
+    sem = embeddings.top_k(q_vec, [(c.id, c.embedding) for c in rows], len(rows))
+    sem_ids = [cid for cid, score in sem if score > 0]
+
+    fused = retrieval.rrf_fuse([bm25_ids, sem_ids])
+    if not fused:
+        return []
+    top = fused[:k]
+    max_score = top[0][1] or 1.0
+    return [(by_id[cid], round(score / max_score, 4)) for cid, score in top]
 
 
 def _grounding_status(answer: str, retrieved: list[tuple[Chunk, float]]) -> str:

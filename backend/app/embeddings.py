@@ -54,17 +54,33 @@ def top_k(
     return scored[:k]
 
 
-def chunk_text(text: str, target_words: int = 120, overlap: int = 20) -> list[str]:
-    """Split text into overlapping word windows."""
-    words = text.split()
-    if not words:
+_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def chunk_text(
+    text: str, target_words: int = 120, overlap_sentences: int = 1
+) -> list[str]:
+    """Split text into sentence-aware chunks of roughly ``target_words`` words.
+
+    Packing whole sentences (rather than blind word windows) keeps each chunk
+    coherent, which improves both retrieval and the quality of citations. A
+    small sentence overlap preserves context across chunk boundaries.
+    """
+    sentences = [s.strip() for s in _SENTENCE_RE.split(text.strip()) if s.strip()]
+    if not sentences:
         return []
+
     chunks: list[str] = []
-    step = max(target_words - overlap, 1)
-    for start in range(0, len(words), step):
-        window = words[start : start + target_words]
-        if window:
-            chunks.append(" ".join(window))
-        if start + target_words >= len(words):
-            break
+    current: list[str] = []
+    current_words = 0
+    for sentence in sentences:
+        words = len(sentence.split())
+        if current and current_words + words > target_words:
+            chunks.append(" ".join(current))
+            current = current[-overlap_sentences:] if overlap_sentences else []
+            current_words = sum(len(s.split()) for s in current)
+        current.append(sentence)
+        current_words += words
+    if current:
+        chunks.append(" ".join(current))
     return chunks
