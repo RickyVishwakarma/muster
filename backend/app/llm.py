@@ -11,7 +11,8 @@ OpenRouter → template):
     RAG, citations, guardrail, traces — demos end to end with no key/network.
 
 Every provider gets the same grounding system prompt (answer only from context,
-emit [chunk N] citations), so the guardrail and trace views behave identically.
+emit [chunk N] citations) plus any prior conversation turns as `history`, so
+follow-up questions keep context.
 """
 from __future__ import annotations
 
@@ -22,6 +23,9 @@ import urllib.request
 from dataclasses import dataclass
 
 from .config import get_settings
+
+# A conversation history: list of (user_question, assistant_answer) prior turns.
+History = list[tuple[str, str]]
 
 _SENT_RE = re.compile(r"(?<=[.!?])\s+")
 _GEMINI_ENDPOINT = (
@@ -51,9 +55,20 @@ def _build_system(agent_prompt: str, context_block: str) -> str:
         "Answer the user's question using ONLY the context below. "
         "Cite every claim with the matching [chunk N] tag. "
         "If the context does not contain the answer, say you don't know — "
-        "do not use outside knowledge.\n\n"
+        "do not use outside knowledge. Prior turns are for continuity; still "
+        "ground each answer in the context.\n\n"
         f"Context:\n{context_block}"
     )
+
+
+def _openai_messages(system: str, history: History, question: str) -> list[dict]:
+    """OpenAI/OpenRouter-style message list with a system turn + history."""
+    messages: list[dict] = [{"role": "system", "content": system}]
+    for user_q, assistant_a in history:
+        messages.append({"role": "user", "content": user_q})
+        messages.append({"role": "assistant", "content": assistant_a})
+    messages.append({"role": "user", "content": question})
+    return messages
 
 
 def _template_answer(question: str, context_block: str) -> str:
@@ -82,16 +97,22 @@ def _template_answer(question: str, context_block: str) -> str:
     return " ".join(parts)
 
 
-def _anthropic_generate(system: str, model: str, question: str) -> LLMResult:
+def _anthropic_generate(system: str, model: str, question: str, history: History) -> LLMResult:
     import anthropic  # lazy import so the app boots without the SDK
 
     settings = get_settings()
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    messages: list[dict] = []
+    for user_q, assistant_a in history:
+        messages.append({"role": "user", "content": user_q})
+        messages.append({"role": "assistant", "content": assistant_a})
+    messages.append({"role": "user", "content": question})
+
     resp = client.messages.create(
         model=model or settings.anthropic_model,
         max_tokens=1024,
         system=system,
-        messages=[{"role": "user", "content": question}],
+        messages=messages,
     )
     if resp.stop_reason == "refusal":
         text = "I can't answer that request."
@@ -108,14 +129,22 @@ def _anthropic_generate(system: str, model: str, question: str) -> LLMResult:
     )
 
 
-def _gemini_generate(system: str, model: str, temperature: float, question: str) -> LLMResult:
+def _gemini_generate(
+    system: str, model: str, temperature: float, question: str, history: History
+) -> LLMResult:
     """Call the Gemini REST API using only the standard library."""
     settings = get_settings()
     model_id = model if (model or "").startswith("gemini") else settings.gemini_model
     url = _GEMINI_ENDPOINT.format(model=model_id)
+    contents: list[dict] = []
+    for user_q, assistant_a in history:
+        contents.append({"role": "user", "parts": [{"text": user_q}]})
+        contents.append({"role": "model", "parts": [{"text": assistant_a}]})
+    contents.append({"role": "user", "parts": [{"text": question}]})
+
     body = {
         "system_instruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": [{"text": question}]}],
+        "contents": contents,
         "generationConfig": {"temperature": temperature, "maxOutputTokens": 1024},
     }
     req = urllib.request.Request(
@@ -147,16 +176,15 @@ def _gemini_generate(system: str, model: str, temperature: float, question: str)
     )
 
 
-def _openrouter_generate(system: str, model: str, temperature: float, question: str) -> LLMResult:
+def _openrouter_generate(
+    system: str, model: str, temperature: float, question: str, history: History
+) -> LLMResult:
     """Call OpenRouter's OpenAI-compatible chat endpoint using only the stdlib."""
     settings = get_settings()
     model_id = model if "/" in (model or "") else settings.openrouter_model
     body = {
         "model": model_id,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": question},
-        ],
+        "messages": _openai_messages(system, history, question),
         "temperature": temperature,
         "max_tokens": 1024,
     }
@@ -191,17 +219,19 @@ def _openrouter_generate(system: str, model: str, temperature: float, question: 
 
 
 def generate(agent_prompt: str, model: str, temperature: float,
-             question: str, context_block: str) -> LLMResult:
+             question: str, context_block: str,
+             history: History | None = None) -> LLMResult:
     settings = get_settings()
     system = _build_system(agent_prompt, context_block)
+    history = history or []
     provider = settings.active_provider
 
     if provider == "anthropic":
-        return _anthropic_generate(system, model, question)
+        return _anthropic_generate(system, model, question, history)
 
     if provider == "gemini":
         try:
-            return _gemini_generate(system, model, temperature, question)
+            return _gemini_generate(system, model, temperature, question, history)
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
             return LLMResult(
@@ -214,7 +244,7 @@ def generate(agent_prompt: str, model: str, temperature: float,
 
     if provider == "openrouter":
         try:
-            return _openrouter_generate(system, model, temperature, question)
+            return _openrouter_generate(system, model, temperature, question, history)
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
             return LLMResult(
@@ -225,7 +255,7 @@ def generate(agent_prompt: str, model: str, temperature: float,
                 output_tokens=0,
             )
 
-    # template fallback
+    # template fallback (history not needed — answers purely from context)
     text = _template_answer(question, context_block)
     return LLMResult(
         text=text,

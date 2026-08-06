@@ -84,6 +84,8 @@ class DocumentIngestResult(BaseModel):
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
     top_k: int = Field(default=4, ge=1, le=10)
+    # Omit to start a new conversation; pass one to continue it.
+    conversation_id: str | None = None
 
 
 class Citation(BaseModel):
@@ -104,6 +106,35 @@ class ChatResponse(BaseModel):
     input_tokens: int
     output_tokens: int
     trace_id: str
+    conversation_id: str
+
+
+# ---- Conversations --------------------------------------------------------
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    agent_id: str
+    title: str
+    created_by: str | None = None
+    created_by_name: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConversationTurn(BaseModel):
+    """One question/answer exchange in a conversation (a Trace, chat-shaped)."""
+
+    trace_id: str
+    question: str
+    answer: str
+    guardrail_status: str
+    citations: list[Citation] = []
+    created_at: datetime
+
+
+class ConversationDetail(ConversationOut):
+    turns: list[ConversationTurn] = []
 
 
 # ---- Traces ---------------------------------------------------------------

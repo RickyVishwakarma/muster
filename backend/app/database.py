@@ -48,6 +48,10 @@ def _ensure_columns() -> None:
             if "created_by" not in existing:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN created_by VARCHAR(32)"))
 
+        trace_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(traces)"))}
+        if "conversation_id" not in trace_cols:
+            conn.execute(text("ALTER TABLE traces ADD COLUMN conversation_id VARCHAR(32)"))
+
 
 def init_db() -> None:
     from . import models  # noqa: F401  (register mappers)

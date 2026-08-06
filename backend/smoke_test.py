@@ -72,6 +72,20 @@ with TestClient(app) as c:
     assert traces[0]["created_by_name"] == "Founder", traces[0]
     print("trace:", traces[0]["guardrail_status"], "| asked by:", traces[0]["created_by_name"])
 
+    # Multi-turn: the first chat opened a conversation; continue it.
+    cid = r["conversation_id"]
+    assert cid, r
+    follow = c.post(
+        f"/agents/{aid}/chat",
+        json={"question": "and how many vacation days?", "conversation_id": cid},
+    ).json()
+    assert follow["conversation_id"] == cid, follow
+    detail = c.get(f"/conversations/{cid}").json()
+    assert len(detail["turns"]) == 2, detail
+    convs = c.get(f"/agents/{aid}/conversations").json()
+    assert any(cv["id"] == cid for cv in convs), convs
+    print("conversation:", cid, "| turns:", len(detail["turns"]))
+
     # Second user registers as a plain member and cannot list the team.
     reg2 = c.post(
         "/auth/register",

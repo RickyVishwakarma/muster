@@ -36,6 +36,7 @@ Define an agent, give it a knowledge base, chat with it, and see every run trace
 ## Features
 
 - **Team accounts & roles** — email/password auth with a shared team workspace; the first user becomes the admin, and admins manage members. Agents, knowledge, and traces are shared across the team, with each agent and run attributed to its author.
+- **Conversational chat** — multi-turn conversations per agent with history, so follow-ups keep context ("does *it* require MFA?" resolves against the previous turn). Each chat is saved and can be reopened.
 - **Agent studio** — create and configure agents (name, system prompt, model) through a clean UI or REST API.
 - **Knowledge base & RAG** — upload `.txt` / `.md` / `.pdf` files; they're chunked, embedded, and retrieved per question so answers are grounded in your data.
 - **Grounding guardrail** — every answer is checked against its retrieved sources and labelled `grounded`, `ungrounded`, or `no_context` — a first line of defence against hallucination.
@@ -192,7 +193,10 @@ All endpoints except `/health`, `/auth/register`, and `/auth/login` require a `A
 | `GET` | `/agents/{id}/documents` | List an agent's documents |
 | `POST` | `/agents/{id}/documents` | Upload & ingest a document (multipart) |
 | `DELETE` | `/agents/{id}/documents/{doc_id}` | Delete a document |
-| `POST` | `/agents/{id}/chat` | Ask the agent a question |
+| `POST` | `/agents/{id}/chat` | Ask a question (omit `conversation_id` to start a chat, pass it to continue) |
+| `GET` | `/agents/{id}/conversations` | List an agent's conversations |
+| `GET` | `/conversations/{id}` | Get a conversation with its turns |
+| `DELETE` | `/conversations/{id}` | Delete a conversation |
 | `GET` | `/traces` | List runs (optional `?agent_id=`) |
 | `GET` | `/traces/{id}` | Get a single run |
 

@@ -51,6 +51,30 @@ export interface ChatResponse {
   input_tokens: number;
   output_tokens: number;
   trace_id: string;
+  conversation_id: string;
+}
+
+export interface Conversation {
+  id: string;
+  agent_id: string;
+  title: string;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationTurn {
+  trace_id: string;
+  question: string;
+  answer: string;
+  guardrail_status: GuardrailStatus;
+  citations: Citation[];
+  created_at: string;
+}
+
+export interface ConversationDetail extends Conversation {
+  turns: ConversationTurn[];
 }
 
 export interface Trace {

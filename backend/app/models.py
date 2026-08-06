@@ -64,6 +64,27 @@ class Agent(Base):
         return self.creator.name if self.creator else None
 
 
+class Conversation(Base):
+    """A multi-turn chat with one agent. Its turns are Trace rows, in order."""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), index=True)
+    created_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
+    title: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, index=True)
+
+    creator: Mapped[User | None] = relationship("User")
+
+    @property
+    def created_by_name(self) -> str | None:
+        return self.creator.name if self.creator else None
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -106,6 +127,9 @@ class Trace(Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     agent_id: Mapped[str] = mapped_column(ForeignKey("agents.id"), index=True)
+    conversation_id: Mapped[str | None] = mapped_column(
+        ForeignKey("conversations.id"), nullable=True, index=True
+    )
     question: Mapped[str] = mapped_column(Text)
     answer: Mapped[str] = mapped_column(Text, default="")
     provider: Mapped[str] = mapped_column(String(40), default="template")

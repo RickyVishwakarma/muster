@@ -2,6 +2,8 @@ import type {
   Agent,
   AuthResponse,
   ChatResponse,
+  Conversation,
+  ConversationDetail,
   DocumentOut,
   Role,
   Trace,
@@ -105,12 +107,20 @@ export const api = {
     return res.json();
   },
 
-  // ---- Chat & traces ----
-  chat: (agentId: string, question: string, top_k = 4) =>
+  // ---- Chat & conversations ----
+  chat: (agentId: string, question: string, conversationId?: string, top_k = 4) =>
     req<ChatResponse>(`/agents/${agentId}/chat`, {
       method: "POST",
-      body: JSON.stringify({ question, top_k }),
+      body: JSON.stringify({ question, top_k, conversation_id: conversationId ?? null }),
     }),
+  listConversations: (agentId: string) =>
+    req<Conversation[]>(`/agents/${agentId}/conversations`),
+  getConversation: (conversationId: string) =>
+    req<ConversationDetail>(`/conversations/${conversationId}`),
+  deleteConversation: (conversationId: string) =>
+    req<void>(`/conversations/${conversationId}`, { method: "DELETE" }),
+
+  // ---- Traces ----
   listTraces: (agentId?: string) =>
     req<Trace[]>(`/traces${agentId ? `?agent_id=${agentId}` : ""}`),
 };

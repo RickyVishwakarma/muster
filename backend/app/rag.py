@@ -66,10 +66,21 @@ def _grounding_status(answer: str, retrieved: list[tuple[Chunk, float]]) -> str:
 
 
 def run_chat(db: Session, agent: Agent, question: str, top_k: int,
-             created_by: str | None = None):
-    """Execute one agent run and persist a trace. Returns (payload_dict, trace)."""
+             created_by: str | None = None,
+             conversation_id: str | None = None,
+             history: list[tuple[str, str]] | None = None):
+    """Execute one agent run and persist a trace. Returns (payload_dict, trace).
+
+    ``history`` is prior (question, answer) turns in the same conversation; it is
+    passed to the model for continuity and used to widen retrieval on follow-ups.
+    """
     started = time.perf_counter()
-    retrieved = _retrieve(db, agent.id, question, top_k)
+    history = history or []
+
+    # Follow-ups like "what about contractors?" retrieve poorly alone — widen
+    # the retrieval query with the previous question for topical continuity.
+    retrieval_query = f"{history[-1][0]} {question}" if history else question
+    retrieved = _retrieve(db, agent.id, retrieval_query, top_k)
 
     # Build the context block with stable [chunk N] tags the model must cite.
     context_lines = [f"[chunk {c.ordinal}] {c.text}" for c, _ in retrieved]
@@ -81,6 +92,7 @@ def run_chat(db: Session, agent: Agent, question: str, top_k: int,
         temperature=agent.temperature,
         question=question,
         context_block=context_block,
+        history=history,
     )
 
     latency_ms = int((time.perf_counter() - started) * 1000)
@@ -113,6 +125,7 @@ def run_chat(db: Session, agent: Agent, question: str, top_k: int,
         output_tokens=result.output_tokens,
         guardrail_status=status,
         created_by=created_by,
+        conversation_id=conversation_id,
     )
     trace.retrieved_chunk_ids = [c.id for c, _ in retrieved]
     db.add(trace)
@@ -129,5 +142,6 @@ def run_chat(db: Session, agent: Agent, question: str, top_k: int,
         "input_tokens": result.input_tokens,
         "output_tokens": result.output_tokens,
         "trace_id": trace.id,
+        "conversation_id": conversation_id,
     }
     return payload, trace
