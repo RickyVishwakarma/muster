@@ -58,6 +58,11 @@ class Agent(Base):
     traces: Mapped[list[Trace]] = relationship(
         back_populates="agent", cascade="all, delete-orphan"
     )
+    # Deleting an agent also removes its conversations (keeps data clean and
+    # avoids a foreign-key failure on databases that enforce FKs, e.g. Postgres).
+    conversations: Mapped[list[Conversation]] = relationship(
+        cascade="all, delete-orphan"
+    )
 
     @property
     def created_by_name(self) -> str | None:

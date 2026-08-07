@@ -66,13 +66,10 @@ def update_agent(
 def delete_agent(
     agent_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    _user: User = Depends(get_current_user),
 ):
+    # Agents are shared across the team, so any signed-in member can delete one.
+    # Cascades remove the agent's documents, chunks, conversations, and traces.
     agent = _get_or_404(db, agent_id)
-    # Only an admin or the agent's creator may delete it.
-    if user.role != "admin" and agent.created_by not in (None, user.id):
-        raise HTTPException(
-            status_code=403, detail="Only an admin or the creator can delete this agent"
-        )
     db.delete(agent)
     db.commit()

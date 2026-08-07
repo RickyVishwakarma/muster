@@ -3,12 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { Agent } from "../types";
 
+// Turn '403: {"detail":"..."}' into just the message for display.
+function cleanError(raw: string): string {
+  const m = raw.match(/"detail":"([^"]+)"/);
+  return m ? m[1] : raw.replace(/^Error:\s*/, "");
+}
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState("claude-opus-5");
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const nav = useNavigate();
 
   const load = () =>
@@ -31,9 +38,21 @@ export default function AgentsPage() {
     }
   }
 
-  async function remove(id: string) {
-    await api.deleteAgent(id);
-    load();
+  async function remove(agent: Agent) {
+    const ok = window.confirm(
+      `Delete "${agent.name}"? This also removes its documents and chat history.`
+    );
+    if (!ok) return;
+    setError(null);
+    setDeletingId(agent.id);
+    try {
+      await api.deleteAgent(agent.id);
+      await load();
+    } catch (e) {
+      setError(`Couldn't delete "${agent.name}": ${cleanError(String(e))}`);
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -67,10 +86,11 @@ export default function AgentsPage() {
                   Open
                 </button>
                 <button
-                  onClick={() => remove(a.id)}
-                  className="rounded-md border border-line px-3 py-1.5 text-sm text-muted hover:text-ink"
+                  onClick={() => remove(a)}
+                  disabled={deletingId === a.id}
+                  className="rounded-md border border-line px-3 py-1.5 text-sm text-muted hover:text-ink disabled:opacity-40"
                 >
-                  Delete
+                  {deletingId === a.id ? "Deleting…" : "Delete"}
                 </button>
               </div>
             </div>
