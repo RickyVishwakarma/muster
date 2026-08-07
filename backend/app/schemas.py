@@ -80,6 +80,11 @@ class DocumentIngestResult(BaseModel):
     chunks_created: int
 
 
+class TextDocumentIn(BaseModel):
+    text: str = Field(min_length=1)
+    title: str | None = Field(default=None, max_length=255)
+
+
 # ---- Chat -----------------------------------------------------------------
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)

@@ -35,6 +35,9 @@ export default function ChatPage() {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -136,6 +139,22 @@ export default function ChatPage() {
       setError(String(e));
     } finally {
       if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function addText() {
+    if (!agentId || !pasteText.trim()) return;
+    setError(null);
+    setPasteBusy(true);
+    try {
+      await api.addTextDocument(agentId, pasteText);
+      setPasteText("");
+      setShowPaste(false);
+      loadDocs();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setPasteBusy(false);
     }
   }
 
@@ -278,14 +297,28 @@ export default function ChatPage() {
         {/* Knowledge base */}
         <aside>
           <div className="rounded-lg border border-line p-4">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="font-medium">Knowledge base</h2>
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="rounded-md border border-line px-2 py-1 text-xs text-muted hover:text-ink"
-              >
-                + Upload
-              </button>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    setShowPaste((v) => !v);
+                  }}
+                  className={`rounded-md border px-2 py-1 text-xs ${
+                    showPaste
+                      ? "border-ink bg-ink text-white"
+                      : "border-line text-muted hover:text-ink"
+                  }`}
+                >
+                  Paste
+                </button>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-md border border-line px-2 py-1 text-xs text-muted hover:text-ink"
+                >
+                  Upload
+                </button>
+              </div>
               <input
                 ref={fileRef}
                 type="file"
@@ -294,10 +327,32 @@ export default function ChatPage() {
                 className="hidden"
               />
             </div>
+
+            {showPaste && (
+              <div className="mb-3 space-y-2">
+                <textarea
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                  rows={5}
+                  placeholder="Paste text to add to this agent's knowledge…"
+                  className="w-full rounded-md border border-line bg-white px-2 py-1.5 text-xs outline-none focus:border-ink"
+                />
+                <button
+                  onClick={addText}
+                  disabled={pasteBusy || !pasteText.trim()}
+                  className="w-full rounded-md bg-ink py-1.5 text-xs font-medium text-white disabled:opacity-40"
+                >
+                  {pasteBusy ? "Adding…" : "Add to knowledge base"}
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2">
               {docs.length === 0 && (
                 <p className="text-xs text-muted">
-                  No documents. Upload .txt / .md / .pdf to build memory.
+                  No documents yet. <span className="text-ink">Paste</span> text or{" "}
+                  <span className="text-ink">Upload</span> a .txt / .md / .pdf to build
+                  its memory.
                 </p>
               )}
               {docs.map((d) => (

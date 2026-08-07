@@ -107,6 +107,11 @@ export const api = {
     if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
     return res.json();
   },
+  addTextDocument: (agentId: string, text: string, title?: string) =>
+    req<{ document: DocumentOut; chunks_created: number }>(
+      `/agents/${agentId}/documents/text`,
+      { method: "POST", body: JSON.stringify({ text, title: title ?? null }) }
+    ),
 
   // ---- Chat & conversations ----
   chat: (agentId: string, question: string, conversationId?: string, top_k = 4) =>
