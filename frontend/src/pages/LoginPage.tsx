@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 
 export default function LoginPage() {
   const { login, register } = useAuth();
   const nav = useNavigate();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const location = useLocation();
+  const wantsRegister = (location.state as { register?: boolean } | null)?.register;
+  const [mode, setMode] = useState<"login" | "register">(
+    wantsRegister ? "register" : "login"
+  );
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +23,7 @@ export default function LoginPage() {
     try {
       if (mode === "login") await login(email, password);
       else await register(email, name, password);
-      nav("/agents", { replace: true });
+      nav("/", { replace: true });
     } catch (err) {
       setError(cleanError(String(err)));
     } finally {
@@ -28,7 +32,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto mt-16 max-w-sm">
+    <div className="mx-auto mt-16 max-w-sm px-6">
+      <Link to="/" className="mb-6 block text-sm text-muted hover:text-ink">
+        ← Back to home
+      </Link>
       <div className="mb-8 text-center">
         <div className="text-2xl font-semibold tracking-tight">
           Mus<span className="text-muted">ter</span>

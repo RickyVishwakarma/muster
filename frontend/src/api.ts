@@ -6,6 +6,7 @@ import type {
   ConversationDetail,
   DocumentOut,
   Role,
+  Stats,
   Trace,
   User,
 } from "./types";
@@ -120,7 +121,8 @@ export const api = {
   deleteConversation: (conversationId: string) =>
     req<void>(`/conversations/${conversationId}`, { method: "DELETE" }),
 
-  // ---- Traces ----
+  // ---- Traces & stats ----
   listTraces: (agentId?: string) =>
     req<Trace[]>(`/traces${agentId ? `?agent_id=${agentId}` : ""}`),
+  getStats: () => req<Stats>("/stats"),
 };

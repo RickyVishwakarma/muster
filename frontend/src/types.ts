@@ -13,6 +13,14 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface Stats {
+  agents: number;
+  documents: number;
+  conversations: number;
+  runs: number;
+  members: number;
+}
+
 export interface Agent {
   id: string;
   name: string;

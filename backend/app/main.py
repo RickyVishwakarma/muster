@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import init_db
-from .routers import agents, auth, chat, conversations, documents, traces
+from .routers import agents, auth, chat, conversations, documents, stats, traces
 
 settings = get_settings()
 
@@ -49,3 +49,4 @@ app.include_router(documents.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)
 app.include_router(traces.router)
+app.include_router(stats.router)
