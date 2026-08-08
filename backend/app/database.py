@@ -57,6 +57,8 @@ def _ensure_columns() -> None:
         agent_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(agents)"))}
         if "tools_json" not in agent_cols:
             conn.execute(text("ALTER TABLE agents ADD COLUMN tools_json TEXT DEFAULT '[]'"))
+        if "api_key" not in agent_cols:
+            conn.execute(text("ALTER TABLE agents ADD COLUMN api_key VARCHAR(64)"))
 
 
 def init_db() -> None:

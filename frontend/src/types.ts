@@ -36,6 +36,7 @@ export interface Agent {
   model: string;
   temperature: number;
   tools: ToolConfig[];
+  api_key: string | null;
   created_by: string | null;
   created_by_name: string | null;
   created_at: string;

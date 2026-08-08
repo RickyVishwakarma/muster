@@ -71,6 +71,7 @@ class AgentOut(BaseModel):
     model: str
     temperature: float
     tools: list[ToolConfig] = []
+    api_key: str | None = None
     created_by: str | None = None
     created_by_name: str | None = None
     created_at: datetime
@@ -124,6 +125,20 @@ class ChatResponse(BaseModel):
     output_tokens: int
     trace_id: str
     conversation_id: str
+
+
+# ---- Public agent API -----------------------------------------------------
+class PublicAskRequest(BaseModel):
+    question: str = Field(min_length=1)
+    top_k: int = Field(default=4, ge=1, le=10)
+
+
+class PublicAskResponse(BaseModel):
+    answer: str
+    citations: list[Citation]
+    tools_used: list[str]
+    guardrail_status: str
+    model: str
 
 
 # ---- Conversations --------------------------------------------------------

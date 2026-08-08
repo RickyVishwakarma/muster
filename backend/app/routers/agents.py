@@ -9,6 +9,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import Agent, User
 from ..schemas import AgentCreate, AgentOut, AgentUpdate
+from ..security import generate_agent_key
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -60,6 +61,31 @@ def update_agent(
     agent = _get_or_404(db, agent_id)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(agent, field, value)
+    db.commit()
+    db.refresh(agent)
+    return agent
+
+
+@router.post("/{agent_id}/publish", response_model=AgentOut)
+def publish_agent(
+    agent_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+):
+    """Give the agent a public API key so external apps can call it."""
+    agent = _get_or_404(db, agent_id)
+    if not agent.api_key:
+        agent.api_key = generate_agent_key()
+        db.commit()
+        db.refresh(agent)
+    return agent
+
+
+@router.post("/{agent_id}/revoke", response_model=AgentOut)
+def revoke_agent(
+    agent_id: str, db: Session = Depends(get_db), _user: User = Depends(get_current_user)
+):
+    """Revoke the public API key — external calls stop working immediately."""
+    agent = _get_or_404(db, agent_id)
+    agent.api_key = None
     db.commit()
     db.refresh(agent)
     return agent

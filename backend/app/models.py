@@ -48,6 +48,11 @@ class Agent(Base):
     temperature: Mapped[float] = mapped_column(Float, default=0.0)
     # Enabled tools, as JSON: [{name, type, description, url?, method?}, ...].
     tools_json: Mapped[str] = mapped_column(Text, default="[]")
+    # Public API key — set when the agent is "published" so external apps can
+    # call it. Null means the agent is private (dashboard-only).
+    api_key: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
     created_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
     )

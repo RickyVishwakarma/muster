@@ -9,6 +9,7 @@ import base64
 import hashlib
 import hmac
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -16,6 +17,11 @@ import jwt
 from .config import get_settings
 
 _ITERATIONS = 200_000
+
+
+def generate_agent_key() -> str:
+    """A public API key for an agent, e.g. 'msk_xxxx…' (Muster Secret Key)."""
+    return "msk_" + secrets.token_urlsafe(24)
 
 
 def hash_password(password: str) -> str:

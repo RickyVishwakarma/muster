@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import IntegratePanel from "./IntegratePanel";
 import type {
   Agent,
   Citation,
@@ -36,6 +37,7 @@ export default function ChatPage() {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showIntegrate, setShowIntegrate] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [pasteBusy, setPasteBusy] = useState(false);
@@ -168,10 +170,25 @@ export default function ChatPage() {
           ← Agents
         </Link>
         <h1 className="text-xl font-semibold">{agent?.name ?? "Agent"}</h1>
+        {agent && (
+          <button
+            onClick={() => setShowIntegrate((v) => !v)}
+            className={`ml-auto rounded-md border px-3 py-1.5 text-sm ${
+              showIntegrate
+                ? "border-ink bg-ink text-white"
+                : "border-line text-muted hover:text-ink"
+            }`}
+          >
+            {agent.api_key ? "Integrate ✓" : "Integrate"}
+          </button>
+        )}
       </div>
 
       {error && <p className="mb-3 text-sm text-ink">{error}</p>}
 
+      {showIntegrate && agent ? (
+        <IntegratePanel agent={agent} onChange={setAgent} />
+      ) : (
       <div className="grid gap-6 md:grid-cols-[190px_1fr_260px]">
         {/* Conversations */}
         <aside>
@@ -383,6 +400,7 @@ export default function ChatPage() {
           </div>
         </aside>
       </div>
+      )}
     </div>
   );
 }

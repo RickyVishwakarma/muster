@@ -14,6 +14,10 @@ import type {
 // In dev, Vite proxies /api -> http://localhost:8000 (see vite.config.ts).
 // In prod, set VITE_API_BASE to the deployed backend origin.
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
+// Direct backend origin, used in copy-paste integration snippets (external
+// callers can't go through the dev proxy).
+export const API_ORIGIN =
+  (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://localhost:8000";
 const TOKEN_KEY = "muster_token";
 
 let authToken: string | null = localStorage.getItem(TOKEN_KEY);
@@ -85,6 +89,8 @@ export const api = {
   updateAgent: (id: string, body: Partial<Agent>) =>
     req<Agent>(`/agents/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteAgent: (id: string) => req<void>(`/agents/${id}`, { method: "DELETE" }),
+  publishAgent: (id: string) => req<Agent>(`/agents/${id}/publish`, { method: "POST" }),
+  revokeAgent: (id: string) => req<Agent>(`/agents/${id}/revoke`, { method: "POST" }),
 
   // ---- Documents ----
   listDocuments: (agentId: string) =>
