@@ -52,6 +52,7 @@ def _turn_from_trace(db: Session, trace: Trace) -> ConversationTurn:
         answer=trace.answer,
         guardrail_status=trace.guardrail_status,
         citations=citations,
+        tools_used=trace.tools_used,
         created_at=trace.created_at,
     )
 

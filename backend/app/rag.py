@@ -6,13 +6,14 @@ Manager (the grounding guardrail).
 """
 from __future__ import annotations
 
+import json
 import re
 import time
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import embeddings, llm, retrieval
+from . import embeddings, llm, retrieval, tools
 from .models import Agent, Chunk, Document, Trace
 from .schemas import Citation
 
@@ -20,6 +21,86 @@ from .schemas import Citation
 # [chunk 1], (chunk 1), and full-width 【chunk 1】, and grounding shouldn't
 # hinge on punctuation the model happened to choose.
 _CITATION_RE = re.compile(r"chunk\s*(\d+)", re.IGNORECASE)
+
+# Flat JSON object, e.g. {"tool": "calculator", "input": "2+2"}.
+_ACTION_RE = re.compile(r"\{[^{}]*\}", re.DOTALL)
+
+_MAX_TOOL_STEPS = 4
+
+
+def _build_tools_prompt(agent_tools: list[dict]) -> str:
+    if not agent_tools:
+        return ""
+    lines = [
+        "You can use tools. When a tool would help, reply with ONLY a JSON "
+        'object (no other text): {"tool": "<name>", "input": "<string>"}. '
+        "You will then be given the tool's result; use it to answer. "
+        "Available tools:",
+    ]
+    for t in agent_tools:
+        lines.append(f'- {t.get("name")}: {tools.describe(t)}')
+    return "\n".join(lines)
+
+
+def _parse_action(text: str, agent_tools: list[dict]) -> tuple[str, str] | None:
+    """Return (tool_name, input) if the model asked for an enabled tool."""
+    valid = {t.get("name") for t in agent_tools}
+    for match in _ACTION_RE.finditer(text):
+        try:
+            obj = json.loads(match.group(0))
+        except Exception:
+            continue
+        if isinstance(obj, dict) and obj.get("tool") in valid:
+            return str(obj["tool"]), str(obj.get("input", ""))
+    return None
+
+
+def _run_agent_loop(agent: Agent, question: str, context_block: str, history):
+    """Generate an answer, letting the agent call tools in a loop.
+
+    Returns (result, tools_used). With no tools (or the template provider) this
+    is a single generate() call, so behaviour is unchanged for plain RAG agents.
+    """
+    tools_prompt = _build_tools_prompt(agent.tools)
+    tools_used: list[str] = []
+    scratchpad = ""
+    total_in = total_out = 0
+    result = None
+
+    for _ in range(_MAX_TOOL_STEPS):
+        prompt_q = question if not scratchpad else f"{question}\n{scratchpad}"
+        result = llm.generate(
+            agent_prompt=agent.system_prompt,
+            model=agent.model,
+            temperature=agent.temperature,
+            question=prompt_q,
+            context_block=context_block,
+            history=history,
+            tools_prompt=tools_prompt,
+        )
+        total_in += result.input_tokens
+        total_out += result.output_tokens
+        action = _parse_action(result.text, agent.tools) if agent.tools else None
+        if action is None:
+            break
+        name, tool_input = action
+        observation = tools.execute(name, tool_input, agent.tools)
+        tools_used.append(name)
+        scratchpad += (
+            f'\n[You called tool "{name}" with input "{tool_input}". '
+            f"Result: {observation}]\n"
+            "Now answer the user's question using this result. If you need "
+            "another tool, reply with another tool JSON."
+        )
+
+    final = llm.LLMResult(
+        text=result.text,
+        provider=result.provider,
+        model=result.model,
+        input_tokens=total_in,
+        output_tokens=total_out,
+    )
+    return final, tools_used
 
 
 def _retrieve(db: Session, agent_id: str, question: str, k: int) -> list[tuple[Chunk, float]]:
@@ -86,14 +167,7 @@ def run_chat(db: Session, agent: Agent, question: str, top_k: int,
     context_lines = [f"[chunk {c.ordinal}] {c.text}" for c, _ in retrieved]
     context_block = "\n".join(context_lines)
 
-    result = llm.generate(
-        agent_prompt=agent.system_prompt,
-        model=agent.model,
-        temperature=agent.temperature,
-        question=question,
-        context_block=context_block,
-        history=history,
-    )
+    result, tools_used = _run_agent_loop(agent, question, context_block, history)
 
     latency_ms = int((time.perf_counter() - started) * 1000)
     status = _grounding_status(result.text, retrieved)
@@ -128,6 +202,7 @@ def run_chat(db: Session, agent: Agent, question: str, top_k: int,
         conversation_id=conversation_id,
     )
     trace.retrieved_chunk_ids = [c.id for c, _ in retrieved]
+    trace.tools_used = tools_used
     db.add(trace)
     db.commit()
     db.refresh(trace)
@@ -135,6 +210,7 @@ def run_chat(db: Session, agent: Agent, question: str, top_k: int,
     payload = {
         "answer": result.text,
         "citations": citations,
+        "tools_used": tools_used,
         "guardrail_status": status,
         "provider": result.provider,
         "model": result.model,

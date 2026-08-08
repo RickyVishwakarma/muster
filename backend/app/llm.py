@@ -161,7 +161,7 @@ def _gemini_generate(
 
     candidates = data.get("candidates", [])
     parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
-    text = "".join(p.get("text", "") for p in parts).strip()
+    text = "".join((p.get("text") or "") for p in parts).strip()
     if not text:
         # e.g. safety block or empty candidate — surface a stable message.
         text = "I can't answer that request."
@@ -204,7 +204,9 @@ def _openrouter_generate(
         data = json.loads(resp.read().decode())
 
     choices = data.get("choices", [])
-    text = (choices[0].get("message", {}).get("content", "") if choices else "").strip()
+    message = choices[0].get("message", {}) if choices else {}
+    # content can be null (e.g. when the model emits a tool-style reply).
+    text = (message.get("content") or "").strip()
     if not text:
         text = "I can't answer that request."
 
@@ -220,9 +222,12 @@ def _openrouter_generate(
 
 def generate(agent_prompt: str, model: str, temperature: float,
              question: str, context_block: str,
-             history: History | None = None) -> LLMResult:
+             history: History | None = None,
+             tools_prompt: str = "") -> LLMResult:
     settings = get_settings()
     system = _build_system(agent_prompt, context_block)
+    if tools_prompt:
+        system += "\n\n" + tools_prompt
     history = history or []
     provider = settings.active_provider
 

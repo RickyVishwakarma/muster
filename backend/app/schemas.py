@@ -38,11 +38,20 @@ class RoleUpdate(BaseModel):
 
 
 # ---- Agents ---------------------------------------------------------------
+class ToolConfig(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    type: str = Field(default="builtin", pattern="^(builtin|http)$")
+    description: str = ""
+    url: str | None = None
+    method: str = "GET"
+
+
 class AgentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     system_prompt: str = ""
     model: str = "claude-opus-5"
     temperature: float = 0.0
+    tools: list[ToolConfig] = []
 
 
 class AgentUpdate(BaseModel):
@@ -50,6 +59,7 @@ class AgentUpdate(BaseModel):
     system_prompt: str | None = None
     model: str | None = None
     temperature: float | None = None
+    tools: list[ToolConfig] | None = None
 
 
 class AgentOut(BaseModel):
@@ -60,6 +70,7 @@ class AgentOut(BaseModel):
     system_prompt: str
     model: str
     temperature: float
+    tools: list[ToolConfig] = []
     created_by: str | None = None
     created_by_name: str | None = None
     created_at: datetime
@@ -104,6 +115,7 @@ class Citation(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     citations: list[Citation]
+    tools_used: list[str] = []
     guardrail_status: str
     provider: str
     model: str
@@ -135,6 +147,7 @@ class ConversationTurn(BaseModel):
     answer: str
     guardrail_status: str
     citations: list[Citation] = []
+    tools_used: list[str] = []
     created_at: datetime
 
 
@@ -156,6 +169,7 @@ class TraceOut(BaseModel):
     input_tokens: int
     output_tokens: int
     guardrail_status: str
+    tools_used: list[str] = []
     created_by: str | None = None
     created_by_name: str | None = None
     created_at: datetime

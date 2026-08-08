@@ -46,6 +46,8 @@ class Agent(Base):
     system_prompt: Mapped[str] = mapped_column(Text, default="")
     model: Mapped[str] = mapped_column(String(80), default="claude-opus-5")
     temperature: Mapped[float] = mapped_column(Float, default=0.0)
+    # Enabled tools, as JSON: [{name, type, description, url?, method?}, ...].
+    tools_json: Mapped[str] = mapped_column(Text, default="[]")
     created_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id"), nullable=True, index=True
     )
@@ -67,6 +69,14 @@ class Agent(Base):
     @property
     def created_by_name(self) -> str | None:
         return self.creator.name if self.creator else None
+
+    @property
+    def tools(self) -> list[dict]:
+        return json.loads(self.tools_json)
+
+    @tools.setter
+    def tools(self, value: list[dict]) -> None:
+        self.tools_json = json.dumps(value)
 
 
 class Conversation(Base):
@@ -143,6 +153,8 @@ class Trace(Base):
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     retrieved_chunk_ids_json: Mapped[str] = mapped_column(Text, default="[]")
+    # Names of tools the agent called during this run, as JSON.
+    tools_used_json: Mapped[str] = mapped_column(Text, default="[]")
     # Guardrail verdict: "grounded" | "ungrounded" | "no_context"
     guardrail_status: Mapped[str] = mapped_column(String(20), default="no_context")
     created_by: Mapped[str | None] = mapped_column(
@@ -164,3 +176,11 @@ class Trace(Base):
     @retrieved_chunk_ids.setter
     def retrieved_chunk_ids(self, value: list[str]) -> None:
         self.retrieved_chunk_ids_json = json.dumps(value)
+
+    @property
+    def tools_used(self) -> list[str]:
+        return json.loads(self.tools_used_json)
+
+    @tools_used.setter
+    def tools_used(self, value: list[str]) -> None:
+        self.tools_used_json = json.dumps(value)

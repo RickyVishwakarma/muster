@@ -21,12 +21,21 @@ export interface Stats {
   members: number;
 }
 
+export interface ToolConfig {
+  name: string;
+  type: "builtin" | "http";
+  description?: string;
+  url?: string | null;
+  method?: string;
+}
+
 export interface Agent {
   id: string;
   name: string;
   system_prompt: string;
   model: string;
   temperature: number;
+  tools: ToolConfig[];
   created_by: string | null;
   created_by_name: string | null;
   created_at: string;
@@ -52,6 +61,7 @@ export type GuardrailStatus = "grounded" | "ungrounded" | "no_context";
 export interface ChatResponse {
   answer: string;
   citations: Citation[];
+  tools_used: string[];
   guardrail_status: GuardrailStatus;
   provider: string;
   model: string;
@@ -78,6 +88,7 @@ export interface ConversationTurn {
   answer: string;
   guardrail_status: GuardrailStatus;
   citations: Citation[];
+  tools_used: string[];
   created_at: string;
 }
 
@@ -96,6 +107,7 @@ export interface Trace {
   input_tokens: number;
   output_tokens: number;
   guardrail_status: GuardrailStatus;
+  tools_used: string[];
   created_by: string | null;
   created_by_name: string | null;
   created_at: string;

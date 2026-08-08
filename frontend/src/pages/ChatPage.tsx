@@ -21,6 +21,7 @@ interface UiTurn {
   answer: string;
   guardrail: GuardrailStatus | null;
   citations: Citation[];
+  tools?: string[];
   pending?: boolean;
   meta?: { provider: string; model: string; latency_ms: number };
 }
@@ -76,6 +77,7 @@ export default function ChatPage() {
           answer: t.answer,
           guardrail: t.guardrail_status,
           citations: t.citations,
+          tools: t.tools_used,
         }))
       );
     } catch (e) {
@@ -104,6 +106,7 @@ export default function ChatPage() {
                 answer: res.answer,
                 guardrail: res.guardrail_status,
                 citations: res.citations,
+                tools: res.tools_used,
                 meta: {
                   provider: res.provider,
                   model: res.model,
@@ -242,6 +245,11 @@ export default function ChatPage() {
                           className={`rounded border px-1.5 py-0.5 ${guardStyles[turn.guardrail]}`}
                         >
                           {turn.guardrail}
+                        </span>
+                      )}
+                      {turn.tools && turn.tools.length > 0 && (
+                        <span className="rounded border border-line px-1.5 py-0.5 text-muted">
+                          🔧 {turn.tools.join(", ")}
                         </span>
                       )}
                       {turn.meta && (

@@ -51,6 +51,12 @@ def _ensure_columns() -> None:
         trace_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(traces)"))}
         if "conversation_id" not in trace_cols:
             conn.execute(text("ALTER TABLE traces ADD COLUMN conversation_id VARCHAR(32)"))
+        if "tools_used_json" not in trace_cols:
+            conn.execute(text("ALTER TABLE traces ADD COLUMN tools_used_json TEXT DEFAULT '[]'"))
+
+        agent_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(agents)"))}
+        if "tools_json" not in agent_cols:
+            conn.execute(text("ALTER TABLE agents ADD COLUMN tools_json TEXT DEFAULT '[]'"))
 
 
 def init_db() -> None:

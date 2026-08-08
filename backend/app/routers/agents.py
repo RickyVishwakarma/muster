@@ -33,7 +33,10 @@ def create_agent(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    agent = Agent(**body.model_dump(), created_by=user.id)
+    data = body.model_dump()
+    tools = data.pop("tools", [])
+    agent = Agent(**data, created_by=user.id)
+    agent.tools = tools  # stored via the JSON-backed property
     db.add(agent)
     db.commit()
     db.refresh(agent)
