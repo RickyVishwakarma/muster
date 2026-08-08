@@ -96,6 +96,11 @@ export default function IntegratePanel({
     );
   }
 
+  const embed = `<script src="${API_ORIGIN}/widget.js"\n        data-agent="${agent.id}" data-key="${key}"></script>`;
+  const previewUrl = `${API_ORIGIN}/widget-demo?agent=${agent.id}&key=${encodeURIComponent(
+    key
+  )}`;
+
   const q = "How many days of leave do I get?";
   const curl = `curl -X POST ${endpoint} \\
   -H "Content-Type: application/json" \\
@@ -141,6 +146,26 @@ console.log(answer);`;
       <Field label="Endpoint" value={endpoint} />
       <Field label="API key" value={key} />
 
+      <div className="rounded-lg border border-line p-4">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-sm font-medium">Embed on your website</span>
+          <a
+            href={previewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-muted underline underline-offset-2 hover:text-ink"
+          >
+            Preview ↗
+          </a>
+        </div>
+        <p className="mb-2 text-xs text-muted">
+          Paste this once before <code>&lt;/body&gt;</code>. A chat bubble
+          appears in the corner — no code, works on any site.
+        </p>
+        <Snippet title="HTML" code={embed} />
+      </div>
+
+      <div className="pt-2 text-sm font-medium">Or call it from your code</div>
       <Snippet title="cURL" code={curl} />
       <Snippet title="Python" code={py} />
       <Snippet title="JavaScript (server-side)" code={js} />
